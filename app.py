@@ -68,14 +68,29 @@ def get_sid(retries=3, backoff=0.5) -> str:
 
 def fetch_queries(sid: str, count: int = 100) -> List[Dict]:
     """Fetch the latest queries from Pi-hole. Returns list of dicts."""
-    # endpoint varies slightly between installs; common ones: queries, queries/list, queries?count=
-    # We'll try /queries with ?count=
-    url = pi_api_url(f"queries?count={count}&sid={sid}")
-    r = requests.get(url, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    # typical v6 shape: {'data': [ { ... }, ... ], 'took': ...}
-    return data.get("data", [])
+    # Based on diagnostic results, use the queries endpoint
+    url = pi_api_url(f"queries?sid={sid}")
+    print(f"Fetching from: {url}")
+
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+
+        # Pi-hole returns data in 'queries' field
+        if "queries" in data and isinstance(data["queries"], list):
+            queries = data["queries"]
+            print(f"Found {len(queries)} total queries, limiting to {count}")
+            # Return only the requested count
+            return queries[:count] if len(queries) > count else queries
+        else:
+            print(
+                f"Unexpected response structure: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+            return []
+
+    except (requests.RequestException, ValueError, KeyError) as e:
+        print(f"Error fetching queries: {e}")
+        return []
 
 
 def make_prompt_for_logs(logs: List[Dict], instructions: Optional[str] = None) -> str:
