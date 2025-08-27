@@ -172,10 +172,3 @@ ollama pull gpt-oss:latest
 - Run Ollama locally to keep DNS log data private
 - Consider network segmentation for enhanced security
 
-## Roadmap
-
-- [ ] Support for multiple Pi-hole instances
-- [ ] Historical trend analysis
-- [ ] Custom alert rules
-- [ ] Web dashboard interface
-- [ ] Export reports to various formats
