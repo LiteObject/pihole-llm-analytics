@@ -20,12 +20,9 @@ def test_pihole_connection():
     # Setup logging
     setup_logging(verbose=True)
 
-    # Create configuration
-    config = PiholeConfig(
-        host="192.168.7.99",
-        password="xPKcAqgV",
-        timeout=10
-    )
+    # Create configuration from environment variables (.env file)
+    # This will load PIHOLE_HOST, PIHOLE_PORT, PIHOLE_PASSWORD, etc.
+    config = PiholeConfig()
 
     print(f"Testing Pi-hole connection to {config.host}")
     print("=" * 50)
@@ -151,7 +148,7 @@ def test_v6_endpoints(client):
     session_id = client._session_id
     base_url = f"http://{client.config.host}:{client.config.port if hasattr(client.config, 'port') else 8080}"
 
-    # Complete Pi-hole v6 API endpoints from official FTL specification
+    # Working Pi-hole v6 API endpoints (failed endpoints removed)
     test_endpoints = [
         # Authentication & Core Info
         "/auth",
@@ -170,22 +167,15 @@ def test_v6_endpoints(client):
 
         # Statistics endpoints
         "/stats/summary",
-        "/stats/database/summary",
         "/stats/upstreams",
-        "/stats/database/upstreams",
         "/stats/top_domains",
-        "/stats/database/top_domains",
         "/stats/top_clients",
-        "/stats/database/top_clients",
         "/stats/query_types",
-        "/stats/database/query_types",
         "/stats/recent_blocked",
 
         # History & Query endpoints
         "/history",
         "/history/clients",
-        "/history/database",
-        "/history/database/clients",
         "/queries",
         "/queries/suggestions",
 
@@ -209,20 +199,10 @@ def test_v6_endpoints(client):
         "/logs/ftl",
         "/logs/webserver",
 
-        # Action endpoints
-        "/action/gravity",
-        "/action/restartdns",
-        "/action/flush/logs",
-        "/action/flush/arp",
-
         # Utility endpoints
         "/teleporter",
         "/docs",
         "/padd",
-
-        # Legacy v5 endpoints for comparison
-        "/admin/api.php?summary",
-        "/admin/api.php?version",
     ]
 
     # Headers for authenticated requests
@@ -235,18 +215,10 @@ def test_v6_endpoints(client):
 
     for endpoint in test_endpoints:
         try:
-            # Construct proper API URLs: base_url/api + endpoint
-            if endpoint.startswith('/admin/'):
-                # Legacy v5 endpoints use the old format
-                url = f"{base_url}{endpoint}"
-                test_url = f"{url}&auth={client.config.password}"
-                print_curl_command("GET", test_url)
-                response = client._session.get(test_url, timeout=5)
-            else:
-                # v6 endpoints use /api prefix
-                url = f"{base_url}/api{endpoint}"
-                print_curl_command("GET", url, headers=headers)
-                response = client._session.get(url, headers=headers, timeout=5)
+            # All endpoints use v6 format with /api prefix
+            url = f"{base_url}/api{endpoint}"
+            print_curl_command("GET", url, headers=headers)
+            response = client._session.get(url, headers=headers, timeout=5)
 
             if response.status_code == 200:
                 try:
@@ -345,9 +317,7 @@ def test_v6_endpoints(client):
             "DNS/DHCP": [ep for ep in working_endpoints if ep.startswith(("/dns", "/dhcp"))],
             "Configuration": [ep for ep in working_endpoints if ep.startswith(("/config", "/endpoints"))],
             "Logs": [ep for ep in working_endpoints if ep.startswith("/logs")],
-            "Actions": [ep for ep in working_endpoints if ep.startswith("/action")],
             "Utilities": [ep for ep in working_endpoints if ep.startswith(("/teleporter", "/docs", "/padd"))],
-            "Legacy": [ep for ep in working_endpoints if ep.startswith("/admin")]
         }
 
         print("   ✅ Working endpoints by category:")
@@ -356,25 +326,12 @@ def test_v6_endpoints(client):
                 print(
                     f"      {category}: {len(endpoints)} endpoints - {', '.join(endpoints[:3])}{'...' if len(endpoints) > 3 else ''}")
 
-    # Show failed endpoints for debugging
+    # Show any remaining failed endpoints for debugging
     failed_endpoints = [
         ep for ep in test_endpoints if ep not in working_endpoints]
     if failed_endpoints:
-        print(f"\n   ❌ Failed endpoints ({len(failed_endpoints)}):")
-        failed_categories = {
-            "Information": [ep for ep in failed_endpoints if ep.startswith("/info")],
-            "Statistics": [ep for ep in failed_endpoints if ep.startswith("/stats")],
-            "Configuration": [ep for ep in failed_endpoints if ep.startswith("/config")],
-            "Logs": [ep for ep in failed_endpoints if ep.startswith("/logs")],
-            "Actions": [ep for ep in failed_endpoints if ep.startswith("/action")],
-            "Legacy": [ep for ep in failed_endpoints if ep.startswith("/admin")],
-            "Other": [ep for ep in failed_endpoints if not any(ep.startswith(prefix) for prefix in ["/info", "/stats", "/config", "/logs", "/action", "/admin"])]
-        }
-
-        for category, endpoints in failed_categories.items():
-            if endpoints:
-                print(
-                    f"      {category}: {', '.join(endpoints[:5])}{'...' if len(endpoints) > 5 else ''}")
+        print(
+            f"\n   ❌ Failed endpoints ({len(failed_endpoints)}): {', '.join(failed_endpoints[:10])}{'...' if len(failed_endpoints) > 10 else ''}")
 
 
 if __name__ == "__main__":
