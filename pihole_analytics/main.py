@@ -377,7 +377,7 @@ class PiholeAnalytics(LoggerMixin):
                 # Limit to first 5
                 "available_models": available_models[:5] if available_models else []
             }
-        except Exception as error:
+        except (ConnectionError, TimeoutError, ValueError, RuntimeError) as error:
             status["components"]["llm_analyzer"] = {
                 "status": "error",
                 "error": str(error)
@@ -391,7 +391,7 @@ class PiholeAnalytics(LoggerMixin):
                 "model": self.config.llm.model,
                 "url": self.config.llm.url
             }
-        except Exception as error:
+        except (ConnectionError, TimeoutError, ValueError, RuntimeError) as error:
             status["components"]["llm_client"] = {
                 "status": "error",
                 "error": str(error)

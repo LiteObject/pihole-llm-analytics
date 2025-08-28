@@ -15,7 +15,6 @@ import requests
 
 from ..utils.models import DNSQuery, AnalysisResult, Anomaly, ThreatLevel
 from ..utils.logging import LoggerMixin
-from ..utils.config import PiholeConfig
 
 
 class LLMAnalysisError(Exception):
@@ -313,7 +312,7 @@ Respond only with valid JSON following the specified structure.
                 threat_summary=threat_summary
             )
 
-        except Exception as error:
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError) as error:
             self.logger.warning(
                 "Failed to parse LLM response as JSON: %s", error)
             # Create a basic result with raw analysis in threat summary
@@ -443,7 +442,7 @@ Respond only with valid JSON following the specified structure.
             self.logger.info("LLM service connection test successful")
             return True
 
-        except Exception as error:
+        except (requests.RequestException, ConnectionError, TimeoutError) as error:
             self.logger.error("LLM service connection test failed: %s", error)
             return False
 
@@ -472,6 +471,6 @@ Respond only with valid JSON following the specified structure.
             self.logger.info("Retrieved %d available models", len(models))
             return models
 
-        except Exception as error:
+        except (requests.RequestException, json.JSONDecodeError, KeyError) as error:
             self.logger.error("Failed to get available models: %s", error)
             return []

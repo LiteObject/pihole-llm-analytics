@@ -1,6 +1,12 @@
 # Pi-hole LLM Analytics
 
-A comprehensive Python application that analyzes Pi-hole DNS logs using Large Language Models (LLMs) to provide intelligent insights, threat detection, and automated anomaly analysis.
+A comprehensive Python application that analyzes Pi-hole DNS logs using Large Languag### Quick Migration Guide
+
+If you were using a standalone script, here's how to use the new integrated architecture:
+
+| **Previous Usage** | **New Integrated Approach** |
+|-------------------|-------------------------------|
+| `python standalone_script.py` | `python integrated_analysis.py` |s (LLMs) to provide intelligent insights, threat detection, and automated anomaly analysis.
 
 ## Features
 
@@ -110,6 +116,33 @@ APP_LOG_FORMAT=json
 
 ## Usage
 
+### Quick Migration Guide
+
+If you were using a standalone script, here's how to use the new integrated architecture:
+
+| **Previous Usage** | **New Integrated Approach** |
+|---------|-------------------------|
+| `python standalone_script.py` | `python integrated_analysis.py` |
+| Direct function calls | Structured classes with error handling |
+| Basic error handling | Comprehensive logging and fallbacks |
+| Single output format | Multiple output formats (JSON, text) |
+| Environment variables only | Environment + programmatic configuration |
+
+#### Using the Integrated Analysis Script
+```bash
+# Basic analysis (standalone functionality)
+python integrated_analysis.py
+
+# Analyze more queries with JSON output
+python integrated_analysis.py --count 500 --output json
+
+# Test connections only
+python integrated_analysis.py --test-connection
+
+# Use different model
+python integrated_analysis.py --model llama3.2:latest --verbose
+```
+
 ### Command Line Interface
 
 The application provides a comprehensive CLI for all operations:
@@ -163,7 +196,63 @@ client_analysis = analytics.get_client_analysis("192.168.1.100", hours=24)
 status = analytics.get_system_status()
 ```
 
+### Direct LLM Integration (New Architecture)
+
+For advanced users who want direct access to the new LLM analyzer:
+
+```python
+from pihole_analytics.core.pihole_client import PiholeClient
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+from pihole_analytics.utils.config import PiholeConfig
+
+# Configure clients
+pihole_config = PiholeConfig(host="192.168.7.99", port=8080, password="your_password")
+llm_config = LLMConfig.from_env()  # Or LLMConfig(url="...", model="...")
+
+# Initialize analyzers
+pihole_client = PiholeClient(pihole_config)
+llm_analyzer = LLMAnalyzer(llm_config)
+
+# Fetch and analyze
+with pihole_client:
+    queries = pihole_client.fetch_queries(100)
+    analysis = llm_analyzer.analyze_queries(queries)
+    print(f"Risk level: {analysis.threat_summary.get('risk_level')}")
+    
+    # Custom analysis with specific instructions
+    custom_analysis = llm_analyzer.analyze_queries(queries, """
+    Focus on:
+    1. Gaming traffic patterns
+    2. Streaming service usage  
+    3. Potential security threats
+    Return JSON with detailed breakdowns.
+    """)
+```
+
 ## Architecture
+
+### New Integrated Architecture
+
+This project has been redesigned from a standalone script to a comprehensive, modular architecture:
+
+#### **Key Improvements**
+- **Modular Design**: Separated concerns into dedicated modules
+- **Error Handling**: Comprehensive error handling with graceful fallbacks
+- **Multiple Interfaces**: CLI, Python API, and standalone scripts
+- **Configuration Management**: Environment variables and programmatic config
+- **Robust Authentication**: Multiple Pi-hole authentication methods
+- **LLM Integration**: Structured LLM analysis with connection testing
+
+#### **Migration Benefits**
+| **Aspect** | **Previous Approach** | **New Architecture** |
+|------------|----------------------|---------------------|
+| **Structure** | Single script | Modular package |
+| **Error Handling** | Basic try/catch | Comprehensive logging & fallbacks |
+| **Configuration** | Environment only | Environment + programmatic |
+| **Authentication** | Single method | Multiple Pi-hole auth methods |
+| **Output** | Single format | Multiple formats (JSON, text, table) |
+| **Testing** | Manual | Built-in connection testing |
+| **Extensibility** | Limited | Easy to extend and customize |
 
 ### Project Structure
 
@@ -172,9 +261,10 @@ pihole-llm-analytics/
 ├── pihole_analytics/           # Main package
 │   ├── core/                   # Core functionality
 │   │   ├── pihole_client.py   # Pi-hole API client
-│   │   └── llm_client.py      # LLM integration
+│   │   └── llm_client.py      # Legacy LLM integration
 │   ├── analytics/              # Analytics engine
-│   │   └── analyzer.py        # DNS analysis and reporting
+│   │   ├── analyzer.py        # Traditional DNS analysis
+│   │   └── llm_analyzer.py    # NEW: AI-powered analysis
 │   ├── security/               # Security monitoring
 │   │   └── threat_detector.py # Threat detection and alerting
 │   ├── utils/                  # Shared utilities
@@ -184,31 +274,35 @@ pihole-llm-analytics/
 │   ├── main.py                # Main application interface
 │   ├── cli.py                 # Command-line interface
 │   └── __main__.py            # Module entry point
-├── example_usage.py           # Comprehensive examples
-├── app.py                     # Legacy standalone script
+├── integrated_analysis.py     # NEW: Standalone analysis script
+├── example_integrated.py      # NEW: Integration examples
 ├── requirements.txt           # Python dependencies
-└── README.md                 # This file
+└── README.md                 # This documentation
 ```
 
 ### Key Components
 
 #### **Core Clients**
 - **PiholeClient**: Robust Pi-hole API integration with authentication, retry logic, and error handling
-- **LLMClient**: Ollama integration for AI-powered analysis with multiple prompt types and response parsing
+- **LLMClient**: Legacy Ollama integration (maintained for compatibility)
+- **LLMAnalyzer**: NEW - Advanced LLM integration with structured analysis and connection testing
 
 #### **Analytics Engine**
-- **DNSAnalyzer**: Comprehensive DNS log analysis with anomaly detection, categorization, and reporting
+- **DNSAnalyzer**: Traditional DNS log analysis with anomaly detection, categorization, and reporting  
+- **LLMAnalyzer**: NEW - AI-powered analysis with custom instructions and structured output
 - **ThreatDetector**: Advanced security monitoring with pattern recognition and threat intelligence
 
 #### **Data Models**
 - Type-safe dataclasses for all data structures
 - Comprehensive enums for status codes and categories
 - Validation and serialization support
+- Enhanced AnalysisResult model with LLM insights
 
 #### **Configuration System**
 - Environment variable-based configuration
 - Dataclass-based config objects with validation
 - Support for multiple configuration sources
+- NEW: LLMConfig for dedicated LLM settings
 
 ### Security Features
 
@@ -242,12 +336,62 @@ pihole-llm-analytics/
 - `ANALYTICS_ENABLE_CACHING`: Enable response caching (default: true)
 - `ANALYTICS_ANOMALY_THRESHOLD`: Anomaly detection sensitivity (default: 0.1)
 
+### LLM Configuration
+
+#### Advanced LLM Settings
+```python
+from pihole_analytics.analytics.llm_analyzer import LLMConfig
+
+llm_config = LLMConfig(
+    url="http://localhost:11434",      # Ollama server URL
+    model="gpt-oss:latest",            # Model name
+    timeout=120,                       # Request timeout
+    max_prompt_chars=18000,            # Prompt size limit
+    temperature=0.2,                   # Response creativity (0.0-1.0)
+    max_tokens=512                     # Response length limit
+)
+
+# Test connection and get available models
+analyzer = LLMAnalyzer(llm_config)
+if analyzer.test_connection():
+    models = analyzer.get_available_models()
+    print(f"Available models: {models}")
+```
+
+#### Environment Variables for LLM
+```bash
+# LLM Configuration
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=gpt-oss:latest
+OLLAMA_TIMEOUT=120
+OLLAMA_TEMPERATURE=0.2
+OLLAMA_MAX_TOKENS=512
+MAX_PROMPT_CHARS=18000
+```
+
 ### Security Settings
 - `SECURITY_ENABLE_THREAT_DETECTION`: Enable threat detection (default: true)
 - `SECURITY_ALERT_THRESHOLD`: Minimum alert severity (low/medium/high/critical)
 - `SECURITY_ENABLE_REPUTATION_CHECK`: Enable domain reputation checking (default: true)
 
 ## Examples
+
+### Migration Examples
+
+#### Migrating from Standalone Scripts
+```bash
+# Previous approach
+python standalone_script.py
+
+# New way - direct replacement
+python integrated_analysis.py
+
+# New way - with enhanced options
+python integrated_analysis.py --count 500 --output json --verbose
+
+# New way - full CLI interface
+python -m pihole_analytics analyze --count 500
+```
 
 ### Basic Analysis
 ```python
@@ -276,6 +420,79 @@ for alert in security_report.get("active_alerts", []):
     print(f"Alert: {alert['title']} - {alert['severity']}")
 ```
 
+### Advanced LLM Analysis
+```python
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+
+# Initialize LLM analyzer
+llm_config = LLMConfig.from_env()
+analyzer = LLMAnalyzer(llm_config)
+
+# Test connection first
+if not analyzer.test_connection():
+    print("❌ LLM service unavailable")
+    exit(1)
+
+# Custom analysis with specific focus
+custom_instructions = """
+Analyze the DNS logs focusing on:
+1. Gaming traffic patterns (Steam, Epic, etc.)
+2. Streaming service usage (Netflix, YouTube, etc.)
+3. Social media activity (Facebook, Twitter, etc.)
+4. Potential security threats or suspicious domains
+5. Bandwidth-heavy applications
+
+Provide detailed breakdown with percentages and specific recommendations.
+Return analysis in the standard JSON format.
+"""
+
+analysis = analyzer.analyze_queries(queries, custom_instructions)
+
+# Extract specific insights
+risk_level = analysis.threat_summary.get('risk_level', 'unknown')
+print(f"🛡️ Risk Assessment: {risk_level}")
+
+if analysis.anomalies:
+    print(f"⚠️ Security Anomalies: {len(analysis.anomalies)}")
+    for anomaly in analysis.anomalies:
+        print(f"  • {anomaly.description} (Confidence: {anomaly.confidence:.1%})")
+```
+
+### Integration Testing
+```python
+# Complete integration test
+from pihole_analytics.core.pihole_client import PiholeClient
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+from pihole_analytics.utils.config import PiholeConfig
+
+def test_integration():
+    """Test the complete integration."""
+    # Load from environment or configure directly
+    pihole_config = PiholeConfig.from_env()  # Or manual config
+    llm_config = LLMConfig.from_env()
+    
+    # Test connections
+    pihole_client = PiholeClient(pihole_config)
+    llm_analyzer = LLMAnalyzer(llm_config)
+    
+    print("🔍 Testing Pi-hole connection...")
+    with pihole_client:
+        queries = pihole_client.fetch_queries(10)
+        print(f"✅ Fetched {len(queries)} queries")
+    
+    print("🤖 Testing LLM connection...")
+    if llm_analyzer.test_connection():
+        print("✅ LLM service available")
+        models = llm_analyzer.get_available_models()
+        print(f"📋 Available models: {models[:3]}...")
+    
+    return True
+
+# Run the test
+if test_integration():
+    print("🎉 Integration test successful!")
+```
+
 ### Client Analysis
 ```python
 # Analyze specific client activity
@@ -286,6 +503,29 @@ print(f"Client {client_ip} analysis:")
 print(f"  Total queries: {analysis['summary']['total_queries']}")
 print(f"  Unique domains: {analysis['summary']['unique_domains']}")
 print(f"  Block rate: {analysis['summary']['block_rate']*100:.1f}%")
+```
+
+## Testing & Validation
+
+### Connection Testing
+```bash
+# Test all connections without running analysis
+python integrated_analysis.py --test-connection
+
+# Verbose testing with detailed output
+python integrated_analysis.py --test-connection --verbose
+```
+
+### Performance Testing
+```bash
+# Test with different query counts
+python integrated_analysis.py --count 50 --output text    # Small test
+python integrated_analysis.py --count 500 --output json   # Medium test
+python integrated_analysis.py --count 1000 --verbose      # Large test
+
+# Test different models
+python integrated_analysis.py --model llama3.2:latest --count 100
+python integrated_analysis.py --model gemma3:4b --count 100
 ```
 
 ## Troubleshooting
@@ -304,6 +544,12 @@ print(f"  Block rate: {analysis['summary']['block_rate']*100:.1f}%")
 
 **Fixed in v1.1**: The application now automatically tries multiple authentication methods for Pi-hole v6.0+ compatibility.
 
+**Integrated Architecture Benefits**:
+- **Multiple Auth Methods**: Automatically tries session-based, password-based, and legacy token methods
+- **Graceful Fallbacks**: Continues with available data when some endpoints fail
+- **Enhanced Logging**: Detailed error messages with troubleshooting hints
+- **Connection Testing**: Built-in testing via `--test-connection` flag
+
 **How it works**:
 1. **Session-based authentication** (Pi-hole v5.x, backward compatibility)
 2. **Password-based per-request authentication** (Pi-hole v6.0+)
@@ -311,21 +557,25 @@ print(f"  Block rate: {analysis['summary']['block_rate']*100:.1f}%")
 
 **Quick Test**:
 ```bash
-# Set your environment variables
-export PIHOLE_HOST=192.168.7.99
-export PIHOLE_PORT=8080
-export PIHOLE_PASSWORD=your_admin_password
+# Test with new integrated script
+python integrated_analysis.py --test-connection
 
-# Test the fix
-python -m pihole_analytics analyze --type security --days 1
+# Test with full CLI
+python -m pihole_analytics status
+
+# Test specific analysis (will gracefully handle API restrictions)
+python integrated_analysis.py --count 10 --verbose
 ```
 
 **If still having issues**:
 
-1. **Run diagnostics**:
+1. **Run integrated diagnostics**:
    ```bash
+   # New integrated testing
+   python integrated_analysis.py --test-connection --verbose
+   
+   # Legacy diagnostic tool (still available)
    python diagnose.py
-   # This will test all authentication methods and show which one works
    ```
 
 2. **Verify Pi-hole admin password**:
@@ -339,14 +589,14 @@ python -m pihole_analytics analyze --type security --days 1
    - Ensure API access is enabled
    - Check Query log display permissions
 
-4. **Manual authentication test**:
+4. **Test integrated authentication**:
    ```python
-   from pihole_analytics.utils.config import PiholeConfig
    from pihole_analytics.core.pihole_client import PiholeClient
+   from pihole_analytics.utils.config import PiholeConfig
    
    config = PiholeConfig(host="your_ip", port=8080, password="your_password")
    with PiholeClient(config) as client:
-       queries = client.fetch_queries(5)  # Now uses multiple auth methods
+       queries = client.fetch_queries(5)  # Uses multiple auth methods automatically
        print(f"Success! Got {len(queries)} queries")
    ```
 
@@ -363,9 +613,24 @@ The application automatically detects your Pi-hole version and uses the appropri
 - Check network connectivity and firewall rules
 
 #### **LLM Service Errors**
-- Verify Ollama is running: `ollama list`
-- Ensure gpt-oss:latest model is installed: `ollama pull gpt-oss:latest`
-- Check LLM service URL and timeout settings
+- **Connection Testing**: Use `python integrated_analysis.py --test-connection` to verify LLM connectivity
+- **Model Availability**: Check available models with the integrated analyzer
+- **Graceful Fallback**: The application continues with basic analysis if LLM fails
+
+```bash
+# Test LLM connectivity
+python integrated_analysis.py --test-connection
+
+# List available models
+python -c "
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+analyzer = LLMAnalyzer(LLMConfig.from_env())
+print('Available models:', analyzer.get_available_models())
+"
+
+# Test with different model
+python integrated_analysis.py --model llama3.2:latest --test-connection
+```
 
 #### **Analysis Errors**
 - Start with smaller query counts for testing

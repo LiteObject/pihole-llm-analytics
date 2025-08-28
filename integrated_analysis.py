@@ -2,22 +2,25 @@
 """
 Integrated Pi-hole LLM Analytics Script.
 
-This script provides the same functionality as the original app.py but uses
+This script provides comprehensive DNS log analysis using
 the new integrated architecture with proper error handling and logging.
 
 Usage:
     python integrated_analysis.py [--count COUNT] [--model MODEL] [--output FORMAT]
 """
 
-from pihole_analytics.utils.logging import setup_logging, get_logger
-from pihole_analytics.utils.config import PiholeConfig
-from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig, LLMAnalysisError
-from pihole_analytics.core.pihole_client import PiholeClient, PiholeAPIError
 import argparse
-import sys
 import json
 import os
+import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig, LLMAnalysisError
+from pihole_analytics.core.pihole_client import PiholeClient
+from pihole_analytics.utils.config import PiholeConfig
+from pihole_analytics.utils.logging import setup_logging, get_logger
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -27,7 +30,6 @@ sys.path.insert(0, str(project_root))
 def load_config_from_env() -> tuple[PiholeConfig, LLMConfig]:
     """Load configuration from environment variables."""
     # Load environment variables
-    from dotenv import load_dotenv
     load_dotenv()
 
     # Pi-hole configuration
@@ -82,15 +84,20 @@ def format_analysis_output(analysis_result, output_format: str = "json") -> str:
         }
         return json.dumps(result_dict, indent=2)
 
-    elif output_format.lower() == "text":
+    if output_format.lower() == "text":
         lines = []
         lines.append("=== Pi-hole LLM Analysis Results ===")
         lines.append(f"Analysis Time: {analysis_result.timestamp}")
         lines.append(
             f"Total Queries Analyzed: {analysis_result.total_queries}")
         lines.append(f"Blocked Queries: {analysis_result.blocked_queries}")
-        lines.append(
-            f"Block Rate: {(analysis_result.blocked_queries/analysis_result.total_queries*100):.1f}%" if analysis_result.total_queries > 0 else "Block Rate: 0%")
+        # Calculate block rate with proper line length
+        if analysis_result.total_queries > 0:
+            block_rate = (analysis_result.blocked_queries /
+                          analysis_result.total_queries * 100)
+            lines.append(f"Block Rate: {block_rate:.1f}%")
+        else:
+            lines.append("Block Rate: 0%")
         lines.append(f"Unique Domains: {analysis_result.unique_domains}")
         lines.append(f"Unique Clients: {analysis_result.unique_clients}")
         lines.append("")
@@ -135,8 +142,7 @@ def format_analysis_output(analysis_result, output_format: str = "json") -> str:
 
         return "\n".join(lines)
 
-    else:
-        raise ValueError(f"Unsupported output format: {output_format}")
+    raise ValueError(f"Unsupported output format: {output_format}")
 
 
 def main():
@@ -146,7 +152,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 This script integrates Pi-hole DNS log analysis with local LLM services.
-It replaces the original app.py with better error handling and structure.
+It provides comprehensive analysis with better error handling and structure.
 
 Environment Variables:
   PIHOLE_HOST         Pi-hole server hostname/IP (default: 127.0.0.1)
@@ -233,7 +239,7 @@ Examples:
                     logger.info("✅ Pi-hole connection successful")
                     logger.info("Pi-hole status: %s",
                                 summary.get('status', 'unknown'))
-            except Exception as e:
+            except (ConnectionError, TimeoutError, ValueError) as e:
                 logger.error("❌ Pi-hole connection failed: %s", e)
                 return 1
 
@@ -310,9 +316,9 @@ Examples:
         print("\nAnalysis interrupted by user", file=sys.stderr)
         return 130
 
-    except Exception as e:
-        logger.error("Unexpected error: %s", e, exc_info=True)
-        print(f"Unexpected error: {e}", file=sys.stderr)
+    except (LLMAnalysisError, ConnectionError, TimeoutError) as e:
+        logger.error("Analysis error: %s", e, exc_info=True)
+        print(f"Analysis error: {e}", file=sys.stderr)
         return 1
 
     finally:
