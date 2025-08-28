@@ -826,11 +826,3 @@ For questions, issues, or contributions:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
-
----
-
-**Note**: This application is designed for network analysis and security monitoring. Ensure compliance with your organization's security policies and data handling requirements when deploying in production environments.
