@@ -44,7 +44,7 @@ class ThreatLevel(Enum):
     CRITICAL = "critical"
 
 
-@dataclass
+@dataclass(frozen=True)
 class DNSQuery:
     """Represents a single DNS query record."""
     timestamp: datetime
@@ -73,9 +73,18 @@ class DNSQuery:
         # Extract domain
         domain = data.get("domain") or data.get("query") or data.get("q") or ""
 
-        # Extract client IP
-        client_ip = (data.get("client") or data.get("client_ip") or
-                     data.get("clientIP") or "unknown")
+        # Extract client IP - handle case where it might be a dict
+        client_ip_raw = (data.get("client") or data.get("client_ip") or
+                         data.get("clientIP") or "unknown")
+
+        # If client_ip is a dictionary, extract the IP address
+        if isinstance(client_ip_raw, dict):
+            client_ip = (client_ip_raw.get("ip") or
+                         client_ip_raw.get("address") or
+                         client_ip_raw.get("client_ip") or
+                         str(client_ip_raw))
+        else:
+            client_ip = str(client_ip_raw)
 
         # Parse status
         status_value = data.get("status") or data.get(

@@ -158,23 +158,28 @@ APP_LOG_FORMAT=json
 **Important Notes**:
 - Use `PIHOLE_PASSWORD` for your Pi-hole admin password, not the API token
 - Include `PIHOLE_HOST` and `PIHOLE_PORT` separately for better control
+- **Always test connections first**: `python integrated_analysis.py --test-connection`
+- **Pi-hole data fetching is reliable** - even if LLM analysis fails, you'll get DNS query data
 - The diagnostic tool (`diagnose.py`) can help verify your configuration
 
 ## Usage
 
 ### Using the Integrated Analysis Script
 ```bash
+# Test connections first (recommended)
+python integrated_analysis.py --test-connection
+
 # Basic analysis (standalone functionality)
 python integrated_analysis.py
 
 # Analyze more queries with JSON output
 python integrated_analysis.py --count 500 --output json
 
-# Test connections only
-python integrated_analysis.py --test-connection
-
 # Use different model
 python integrated_analysis.py --model llama3.2:latest --verbose
+
+# Test with verbose logging for troubleshooting
+python integrated_analysis.py --count 50 --verbose
 ```
 
 ### Command Line Interface
@@ -602,11 +607,11 @@ python integrated_analysis.py --count 10 --verbose
 
 1. **Run integrated diagnostics**:
    ```bash
-   # New integrated testing
+   # Test both Pi-hole and LLM connections
    python integrated_analysis.py --test-connection --verbose
    
-   # Legacy diagnostic tool (still available)
-   python diagnose.py
+   # Test Pi-hole authentication and endpoints
+   python test_pihole_auth.py
    ```
 
 2. **Verify Pi-hole admin password**:
@@ -663,6 +668,30 @@ print('Available models:', analyzer.get_available_models())
 python integrated_analysis.py --model llama3.2:latest --test-connection
 ```
 
+**Common LLM Parsing Error**: If you see `unhashable type: 'dict'` error:
+```bash
+# This indicates the LLM service is responding but with unexpected format
+# Pi-hole data collection still works - only LLM analysis fails
+
+# Try with a smaller query count first
+python integrated_analysis.py --count 10 --verbose
+
+# Test only the connection without analysis
+python integrated_analysis.py --test-connection
+
+# Check if Ollama service is running properly
+ollama ps  # Should show running models
+ollama list  # Should show available models
+```
+
+**What works regardless of LLM issues:**
+- ✅ Pi-hole authentication and connection
+- ✅ DNS query data fetching (100+ queries)
+- ✅ Basic DNS log parsing and validation
+- ❌ Only the AI-powered analysis may fail
+
+The Pi-hole data fetching will still work even if LLM analysis fails.
+
 #### **Analysis Errors**
 - Start with smaller query counts for testing
 - Check Pi-hole logs for any query retrieval issues
@@ -680,17 +709,21 @@ export APP_LOG_LEVEL=DEBUG
 python -m pihole_analytics --verbose analyze
 ```
 
-#### **Using the Diagnostic Tool**
+#### **Using the Diagnostic Tools**
 
-The project includes a `diagnose.py` script for testing Pi-hole API connectivity:
+The project includes comprehensive diagnostic capabilities:
 
 ```bash
-# Run the diagnostic tool
-python diagnose.py
+# Test both Pi-hole and LLM connections
+python integrated_analysis.py --test-connection
+
+# Test Pi-hole authentication and all endpoints
+python test_pihole_auth.py
 
 # This will test:
 # - Authentication to Pi-hole
 # - All available API endpoints
+# - LLM service connectivity
 # - Data retrieval and parsing
 # - Provide detailed error information
 ```
