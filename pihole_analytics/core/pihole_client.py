@@ -77,24 +77,31 @@ class PiholeClient(LoggerMixin):
 
         self.log_method_call("get_version")
 
-        # Version endpoint typically doesn't require authentication
-        url = self._api_url("version")
+        # Try v6 endpoint first, then fallback to legacy
+        endpoints = ["info/version", "version"]
 
-        try:
-            response = self._session.get(url, timeout=self.config.timeout)
-            response.raise_for_status()
+        for endpoint in endpoints:
+            try:
+                url = self._api_url(endpoint)
+                response = self._session.get(url, timeout=self.config.timeout)
+                response.raise_for_status()
 
-            data = response.json()
-            self._version_info = data
-            version_str = data.get("version", "unknown")
-            self.logger.info("Pi-hole version detected: %s", version_str)
-            return data
+                data = response.json()
+                self._version_info = data
+                version_str = data.get("version", "unknown")
+                self.logger.info(
+                    "Pi-hole version detected: %s (endpoint: %s)", version_str, endpoint)
+                return data
 
-        except requests.RequestException as error:
-            self.logger.warning("Failed to fetch version: %s", error)
-            # Return empty dict if version detection fails
-            self._version_info = {}
-            return self._version_info
+            except requests.RequestException as error:
+                self.logger.debug(
+                    "Version endpoint %s failed: %s", endpoint, error)
+                continue
+
+        # If all endpoints fail
+        self.logger.warning("All version endpoints failed")
+        self._version_info = {}
+        return self._version_info
 
     def _is_v6_or_later(self) -> bool:
         """Check if Pi-hole is version 6.0 or later."""
@@ -216,6 +223,19 @@ class PiholeClient(LoggerMixin):
         if not self._session_id:
             self.authenticate()
 
+        # Try v6 endpoint first with session ID in headers
+        if self._session_id:
+            headers = {
+                "X-FTL-SID": self._session_id,
+            }
+
+            try:
+                url = self._api_url("queries")
+                return self._execute_queries_request(url, count, "session-based", headers=headers)
+            except (PiholeAPIError, requests.RequestException):
+                pass  # Fall through to legacy method
+
+        # Fallback to legacy format
         url = self._api_url(f"queries?sid={self._session_id}")
         return self._execute_queries_request(url, count, "session-based")
 
@@ -273,10 +293,11 @@ class PiholeClient(LoggerMixin):
         url = self._api_url(f"queries?auth={self.config.password}")
         return self._execute_queries_request(url, count, "token-based")
 
-    def _execute_queries_request(self, url: str, count: int, method: str) -> List[DNSQuery]:
+    def _execute_queries_request(self, url: str, count: int, method: str, headers: Optional[Dict[str, str]] = None) -> List[DNSQuery]:
         """Execute a GET request for queries."""
         try:
-            response = self._session.get(url, timeout=self.config.timeout)
+            response = self._session.get(
+                url, headers=headers, timeout=self.config.timeout)
             response.raise_for_status()
             return self._parse_queries_response(response, count, method)
         except requests.RequestException as error:
@@ -358,17 +379,30 @@ class PiholeClient(LoggerMixin):
 
         self.log_method_call("get_summary")
 
-        # Try multiple endpoints for summary data
+        # Try multiple endpoints for summary data - v6 and fallback endpoints
         endpoints = [
+            # Pi-hole v6+ endpoints (preferred)
+            f"stats/summary",
+            # Legacy endpoints as fallback
             f"summary?sid={self._session_id}",
             f"stats?sid={self._session_id}",
             f"status?sid={self._session_id}",
         ]
 
+        headers = {
+            "X-FTL-SID": self._session_id,
+        }
+
         for endpoint in endpoints:
             try:
                 url = self._api_url(endpoint)
-                response = self._session.get(url, timeout=self.config.timeout)
+                # Use session headers for v6 endpoints, session ID in URL for legacy
+                if "?sid=" in endpoint:
+                    response = self._session.get(
+                        url, timeout=self.config.timeout)
+                else:
+                    response = self._session.get(
+                        url, headers=headers, timeout=self.config.timeout)
 
                 if response.status_code == 404:
                     continue  # Try next endpoint
@@ -412,6 +446,25 @@ class PiholeClient(LoggerMixin):
 
         self.log_method_call("get_top_domains", count=count)
 
+        # Try v6 endpoint first, then fallback to legacy
+        headers = {
+            "X-FTL-SID": self._session_id,
+        }
+
+        # Try v6 endpoint first
+        try:
+            url = self._api_url("stats/top_domains")
+            response = self._session.get(
+                url, headers=headers, timeout=self.config.timeout)
+            response.raise_for_status()
+            data = response.json()
+            self.logger.info(
+                "Successfully fetched top domains from v6 endpoint")
+            return data
+        except requests.RequestException as v6_error:
+            self.logger.debug("v6 endpoint failed: %s", v6_error)
+
+        # Fallback to legacy endpoint
         url = self._api_url(f"topItems?sid={self._session_id}")
 
         try:
