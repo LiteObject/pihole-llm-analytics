@@ -75,7 +75,7 @@ class LLMFactory:
         Returns:
             List of provider names as strings
         """
-        return [p.value for p in cls._providers.keys()]
+        return [p.value for p in cls._providers]
 
     @classmethod
     def is_provider_available(cls, provider: LLMProvider) -> bool:
@@ -91,8 +91,11 @@ class LLMFactory:
         return provider in cls._providers
 
     @classmethod
-    def create_with_fallback(cls, config: LLMConfig,
-                             fallback_providers: Optional[List[LLMProvider]] = None) -> BaseLLMProvider:
+    def create_with_fallback(
+        cls,
+        config: LLMConfig,
+        fallback_providers: Optional[List[LLMProvider]] = None
+    ) -> BaseLLMProvider:
         """
         Create a provider with fallback options.
 

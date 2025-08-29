@@ -8,7 +8,7 @@ import logging
 from typing import List, Optional
 
 try:
-    import openai
+    import openai  # pylint: disable=import-error
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -78,13 +78,15 @@ class OpenAIProvider(BaseLLMProvider):
             self.logger.info("Successfully completed OpenAI analysis")
             return analysis_result
 
-        except Exception as e:
-            if openai and isinstance(e, (openai.APIError, openai.RateLimitError)):
-                self.logger.error("OpenAI API error: %s", e)
-                raise ConnectionError(f"OpenAI API error: {e}") from e
-            else:
-                self.logger.error("Failed to analyze with OpenAI: %s", e)
-                return self._create_fallback_analysis(queries)
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            self.logger.error("Failed to analyze with OpenAI: %s", e)
+            return self._create_fallback_analysis(queries)
+        except ImportError as e:
+            self.logger.error("OpenAI package not available: %s", e)
+            return self._create_fallback_analysis(queries)
+        except ConnectionError as e:
+            self.logger.error("OpenAI connection error: %s", e)
+            return self._create_fallback_analysis(queries)
 
     def test_connection(self) -> bool:
         """Test OpenAI connection."""
@@ -92,7 +94,7 @@ class OpenAIProvider(BaseLLMProvider):
             # Try to list models as a connection test
             list(self.client.models.list())
             return True
-        except Exception as e:
+        except (ConnectionError, TimeoutError, AttributeError, ImportError) as e:
             self.logger.debug("OpenAI connection test failed: %s", e)
             return False
 
@@ -107,6 +109,6 @@ class OpenAIProvider(BaseLLMProvider):
             ]
             return sorted(chat_models)
 
-        except Exception as e:
+        except (ConnectionError, TimeoutError, AttributeError, ImportError, ValueError) as e:
             self.logger.debug("Failed to get OpenAI models: %s", e)
             return ["gpt-3.5-turbo", "gpt-4"]  # Default fallback models

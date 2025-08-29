@@ -192,7 +192,6 @@ class PiholeClient(LoggerMixin):
             lambda: self._fetch_queries_with_token(count)
         ]
 
-        last_error = None
         for i, auth_method in enumerate(auth_methods, 1):
             try:
                 self.logger.info(
@@ -201,7 +200,6 @@ class PiholeClient(LoggerMixin):
             except (PiholeAPIError, requests.RequestException) as error:
                 self.logger.warning(
                     "Authentication method %d failed: %s", i, error)
-                last_error = error
                 continue
 
         # If all methods fail, provide helpful error message and potential workaround
@@ -280,7 +278,8 @@ class PiholeClient(LoggerMixin):
                 response.raise_for_status()
                 self.logger.info(
                     "Successfully connected using %s method", endpoint)
-                return self._parse_queries_response(response, count, f"password-{http_method}-{endpoint}")
+                method_name = f"password-{http_method}-{endpoint}"
+                return self._parse_queries_response(response, count, method_name)
 
             except requests.RequestException as e:
                 self.logger.debug("Method %s failed: %s", endpoint, e)
@@ -296,10 +295,16 @@ class PiholeClient(LoggerMixin):
             f"queries?auth={self.config.password}&from=0&limit={count}")
         return self._execute_queries_request(url, count, "token-based")
 
-    def _execute_queries_request(self, url: str, count: int, method: str, headers: Optional[Dict[str, str]] = None) -> List[DNSQuery]:
+    def _execute_queries_request(
+        self,
+        url: str,
+        count: int,
+        method: str,
+        headers: Optional[Dict[str, str]] = None
+    ) -> List[DNSQuery]:
         """Execute a GET request for queries."""
         try:
-            self.logger.info(f"Making request to URL: {url}")
+            self.logger.info("Making request to URL: %s", url)
             response = self._session.get(
                 url, headers=headers, timeout=self.config.timeout)
             response.raise_for_status()
@@ -307,7 +312,12 @@ class PiholeClient(LoggerMixin):
         except requests.RequestException as error:
             raise PiholeAPIError(f"{method} query failed: {error}") from error
 
-    def _parse_queries_response(self, response: requests.Response, count: int, method: str) -> List[DNSQuery]:
+    def _parse_queries_response(
+        self,
+        response: requests.Response,
+        count: int,
+        method: str
+    ) -> List[DNSQuery]:
         """Parse the queries response and convert to DNSQuery objects."""
         try:
             data = response.json()
@@ -331,8 +341,10 @@ class PiholeClient(LoggerMixin):
             elif "results" in data and isinstance(data["results"], list):
                 raw_queries = data["results"]
             else:
+                data_type = (list(data.keys()) if isinstance(data, dict)
+                             else type(data).__name__)
                 self.logger.warning("Unexpected response structure from %s: %s",
-                                    method, list(data.keys()) if isinstance(data, dict) else type(data).__name__)
+                                    method, data_type)
                 # Log a sample of the response for debugging
                 if isinstance(data, dict) and data:
                     sample_key = list(data.keys())[0]
@@ -341,7 +353,8 @@ class PiholeClient(LoggerMixin):
                 return []
 
             self.logger.info(
-                "Fetched %d queries from Pi-hole using %s (requested %d)", len(raw_queries), method, count)
+                "Fetched %d queries from Pi-hole using %s (requested %d)",
+                len(raw_queries), method, count)
 
             # Convert to DNSQuery objects and limit count
             queries = []
@@ -386,7 +399,7 @@ class PiholeClient(LoggerMixin):
         # Try multiple endpoints for summary data - v6 and fallback endpoints
         endpoints = [
             # Pi-hole v6+ endpoints (preferred)
-            f"stats/summary",
+            "stats/summary",
             # Legacy endpoints as fallback
             f"summary?sid={self._session_id}",
             f"stats?sid={self._session_id}",

@@ -6,13 +6,12 @@ This provider integrates with local Ollama instances for DNS analysis.
 
 import json
 import logging
-from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import List, Optional
 
 import requests
 
 from .base import BaseLLMProvider, LLMConfig
-from ...utils.models import DNSQuery, AnalysisResult, Anomaly, ThreatLevel
+from ...utils.models import DNSQuery, AnalysisResult
 
 
 class OllamaProvider(BaseLLMProvider):
@@ -77,7 +76,7 @@ class OllamaProvider(BaseLLMProvider):
             self.logger.error("Failed to parse Ollama response: %s", e)
             # Return fallback analysis
             return self._create_fallback_analysis(queries)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             self.logger.error("Ollama analysis failed: %s", e)
             return self._create_fallback_analysis(queries)
 
