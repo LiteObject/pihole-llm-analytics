@@ -35,12 +35,22 @@ class PiholeConfig:
 
 @dataclass
 class LLMConfig:
-    """LLM (Ollama) configuration."""
-    url: str = os.getenv("OLLAMA_URL", "http://localhost:11434")
-    model: str = os.getenv("OLLAMA_MODEL", "gpt-oss:latest")
-    timeout: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
-    temperature: float = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
-    max_tokens: int = int(os.getenv("OLLAMA_MAX_TOKENS", "512"))
+    """LLM configuration supporting multiple providers."""
+    provider: str = os.getenv("LLM_PROVIDER", "ollama")
+    model: str = os.getenv("LLM_MODEL", "gpt-oss:latest")
+    api_key: Optional[str] = os.getenv("LLM_API_KEY")
+    api_base_url: Optional[str] = os.getenv(
+        "LLM_API_BASE_URL", "http://localhost:11434")
+    timeout: int = int(os.getenv("LLM_TIMEOUT", "120"))
+    temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
+    max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "512"))
+    max_prompt_chars: int = int(os.getenv("MAX_PROMPT_CHARS", "18000"))
+
+    # Backward compatibility properties
+    @property
+    def url(self) -> str:
+        """Backward compatibility: map api_base_url to url."""
+        return self.api_base_url or "http://localhost:11434"
 
 
 @dataclass

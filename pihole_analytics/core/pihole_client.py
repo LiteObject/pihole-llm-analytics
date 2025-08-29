@@ -230,13 +230,15 @@ class PiholeClient(LoggerMixin):
             }
 
             try:
-                url = self._api_url("queries")
+                # Try different parameter combinations
+                url = self._api_url(f"queries?from=0&limit={count}")
                 return self._execute_queries_request(url, count, "session-based", headers=headers)
             except (PiholeAPIError, requests.RequestException):
                 pass  # Fall through to legacy method
 
         # Fallback to legacy format
-        url = self._api_url(f"queries?sid={self._session_id}")
+        url = self._api_url(
+            f"queries?sid={self._session_id}&from=0&limit={count}")
         return self._execute_queries_request(url, count, "session-based")
 
     def _fetch_queries_with_password(self, count: int) -> List[DNSQuery]:
@@ -290,12 +292,14 @@ class PiholeClient(LoggerMixin):
     def _fetch_queries_with_token(self, count: int) -> List[DNSQuery]:
         """Fetch queries using legacy token-based authentication."""
         # Some Pi-hole installations might still use API tokens
-        url = self._api_url(f"queries?auth={self.config.password}")
+        url = self._api_url(
+            f"queries?auth={self.config.password}&from=0&limit={count}")
         return self._execute_queries_request(url, count, "token-based")
 
     def _execute_queries_request(self, url: str, count: int, method: str, headers: Optional[Dict[str, str]] = None) -> List[DNSQuery]:
         """Execute a GET request for queries."""
         try:
+            self.logger.info(f"Making request to URL: {url}")
             response = self._session.get(
                 url, headers=headers, timeout=self.config.timeout)
             response.raise_for_status()
@@ -337,7 +341,7 @@ class PiholeClient(LoggerMixin):
                 return []
 
             self.logger.info(
-                "Fetched %d queries from Pi-hole using %s", len(raw_queries), method)
+                "Fetched %d queries from Pi-hole using %s (requested %d)", len(raw_queries), method, count)
 
             # Convert to DNSQuery objects and limit count
             queries = []
