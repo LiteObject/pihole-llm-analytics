@@ -235,22 +235,26 @@ client_analysis = analytics.get_client_analysis("192.168.1.100", hours=24)
 status = analytics.get_system_status()
 ```
 
-### Direct LLM Integration (New Architecture)
+### Direct LLM Integration (Factory Pattern)
 
-For advanced users who want direct access to the new LLM analyzer:
+For advanced users who want direct access to the new LLM analyzer with factory pattern:
 
 ```python
 from pihole_analytics.core.pihole_client import PiholeClient
-from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer
+from pihole_analytics.analytics.llm_providers.factory import LLMProvider
 from pihole_analytics.utils.config import PiholeConfig
 
-# Configure clients
+# Configure Pi-hole client
 pihole_config = PiholeConfig(host="192.168.7.99", port=8080, password="your_password")
-llm_config = LLMConfig.from_env()  # Or LLMConfig(url="...", model="...")
-
-# Initialize analyzers
 pihole_client = PiholeClient(pihole_config)
-llm_analyzer = LLMAnalyzer(llm_config)
+
+# Initialize LLM analyzer using factory pattern
+llm_analyzer = LLMAnalyzer.create_with_provider(LLMProvider.OLLAMA)
+
+# Test connections
+if not llm_analyzer.test_connection():
+    print("Warning: LLM service not available")
 
 # Fetch and analyze
 with pihole_client:
@@ -266,26 +270,46 @@ with pihole_client:
     3. Potential security threats
     Return JSON with detailed breakdowns.
     """)
+
+# Alternative: Legacy configuration method (still supported)
+from pihole_analytics.analytics.llm_analyzer import LLMConfig
+llm_config = LLMConfig.from_env()
+legacy_analyzer = LLMAnalyzer(llm_config)
 ```
 
 ## Architecture
 
 ### New Integrated Architecture
 
-This project has been redesigned from a standalone script to a comprehensive, modular architecture:
+This project has been redesigned from a standalone script to a comprehensive, modular architecture with factory pattern for LLM providers:
 
 ### **Key Improvements**
 - **Modular Design**: Separated concerns into dedicated modules
+- **Factory Pattern**: Pluggable LLM providers (Ollama, OpenAI, extensible)
 - **Error Handling**: Comprehensive error handling with graceful fallbacks
 - **Multiple Interfaces**: CLI, Python API, and standalone scripts
 - **Configuration Management**: Environment variables and programmatic config
 - **Robust Authentication**: Multiple Pi-hole authentication methods
 - **LLM Integration**: Structured LLM analysis with connection testing
 
+### **Factory Pattern Benefits**
+The new factory pattern implementation provides:
+- **Provider Abstraction**: Easy switching between LLM providers
+- **Extensibility**: Simple to add new providers (Azure OpenAI, Anthropic, etc.)
+- **Fallback Support**: Automatic fallback when primary provider fails
+- **Type Safety**: Fully typed provider interfaces
+- **Configuration**: Environment-based or programmatic provider selection
+
+### **Supported LLM Providers**
+- **Ollama**: Local LLM hosting (default, requires Ollama service)
+- **OpenAI**: OpenAI API integration (requires API key)
+- **Extensible**: Easy to add Azure OpenAI, Anthropic Claude, etc.
+
 ### **Architecture Benefits**
 | **Feature** | **Implementation** | **Benefit** |
 |-------------|-------------------|-------------|
 | **Modular Structure** | Separated packages | Easy maintenance & testing |
+| **Factory Pattern** | Pluggable LLM providers | Easy provider switching |
 | **Error Handling** | Comprehensive logging & fallbacks | Reliable operation |
 | **Configuration** | Environment + programmatic | Flexible deployment |
 | **Authentication** | Multiple Pi-hole auth methods | Broad compatibility |
@@ -303,7 +327,13 @@ pihole-llm-analytics/
 │   │   └── llm_client.py      # Legacy LLM integration
 │   ├── analytics/              # Analytics engine
 │   │   ├── analyzer.py        # Traditional DNS analysis
-│   │   └── llm_analyzer.py    # NEW: AI-powered analysis
+│   │   ├── llm_analyzer.py    # AI-powered analysis with factory pattern
+│   │   └── llm_providers/     # LLM provider factory pattern
+│   │       ├── __init__.py    # Package initialization
+│   │       ├── base.py        # Abstract base provider
+│   │       ├── factory.py     # Provider factory and enum
+│   │       ├── ollama_provider.py  # Ollama implementation
+│   │       └── openai_provider.py  # OpenAI implementation
 │   ├── security/               # Security monitoring
 │   │   └── threat_detector.py # Threat detection and alerting
 │   ├── utils/                  # Shared utilities
@@ -313,8 +343,7 @@ pihole-llm-analytics/
 │   ├── main.py                # Main application interface
 │   ├── cli.py                 # Command-line interface
 │   └── __main__.py            # Module entry point
-├── integrated_analysis.py     # NEW: Standalone analysis script
-├── example_integrated.py      # NEW: Integration examples
+├── integrated_analysis.py     # Standalone analysis script
 ├── requirements.txt           # Python dependencies
 └── README.md                 # This documentation
 ```
@@ -324,12 +353,13 @@ pihole-llm-analytics/
 #### **Core Clients**
 - **PiholeClient**: Robust Pi-hole API integration with authentication, retry logic, and error handling
 - **LLMClient**: Legacy Ollama integration (maintained for compatibility)
-- **LLMAnalyzer**: NEW - Advanced LLM integration with structured analysis and connection testing
+- **LLMAnalyzer**: AI-powered analysis with factory pattern for multiple LLM providers
 
 #### **Analytics Engine**
 - **DNSAnalyzer**: Traditional DNS log analysis with anomaly detection, categorization, and reporting  
-- **LLMAnalyzer**: NEW - AI-powered analysis with custom instructions and structured output
+- **LLMAnalyzer**: AI-powered analysis with factory pattern, custom instructions and structured output
 - **ThreatDetector**: Advanced security monitoring with pattern recognition and threat intelligence
+- **LLM Providers**: Factory pattern implementation supporting Ollama, OpenAI, and extensible architecture
 
 #### **Data Models**
 - Type-safe dataclasses for all data structures
@@ -341,7 +371,7 @@ pihole-llm-analytics/
 - Environment variable-based configuration
 - Dataclass-based config objects with validation
 - Support for multiple configuration sources
-- NEW: LLMConfig for dedicated LLM settings
+- Factory pattern configuration for LLM providers
 
 ### Security Features
 
@@ -379,8 +409,14 @@ pihole-llm-analytics/
 
 #### Advanced LLM Settings
 ```python
-from pihole_analytics.analytics.llm_analyzer import LLMConfig
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer
+from pihole_analytics.analytics.llm_providers.factory import LLMProvider
 
+# Factory pattern (recommended)
+analyzer = LLMAnalyzer.create_with_provider(LLMProvider.OLLAMA)
+
+# Legacy configuration (still supported)
+from pihole_analytics.analytics.llm_analyzer import LLMConfig
 llm_config = LLMConfig(
     url="http://localhost:11434",      # Ollama server URL
     model="gpt-oss:latest",            # Model name
@@ -389,9 +425,9 @@ llm_config = LLMConfig(
     temperature=0.2,                   # Response creativity (0.0-1.0)
     max_tokens=512                     # Response length limit
 )
+legacy_analyzer = LLMAnalyzer(llm_config)
 
 # Test connection and get available models
-analyzer = LLMAnalyzer(llm_config)
 if analyzer.test_connection():
     models = analyzer.get_available_models()
     print(f"Available models: {models}")
@@ -458,15 +494,15 @@ for alert in security_report.get("active_alerts", []):
 
 ### Advanced LLM Analysis
 ```python
-from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer
+from pihole_analytics.analytics.llm_providers.factory import LLMProvider
 
-# Initialize LLM analyzer
-llm_config = LLMConfig.from_env()
-analyzer = LLMAnalyzer(llm_config)
+# Initialize LLM analyzer with factory pattern
+analyzer = LLMAnalyzer.create_with_provider(LLMProvider.OLLAMA)
 
 # Test connection first
 if not analyzer.test_connection():
-    print("❌ LLM service unavailable")
+    print("LLM service unavailable")
     exit(1)
 
 # Custom analysis with specific focus
@@ -486,10 +522,10 @@ analysis = analyzer.analyze_queries(queries, custom_instructions)
 
 # Extract specific insights
 risk_level = analysis.threat_summary.get('risk_level', 'unknown')
-print(f"🛡️ Risk Assessment: {risk_level}")
+print(f"Risk Assessment: {risk_level}")
 
 if analysis.anomalies:
-    print(f"⚠️ Security Anomalies: {len(analysis.anomalies)}")
+    print(f"Security Anomalies: {len(analysis.anomalies)}")
     for anomaly in analysis.anomalies:
         print(f"  • {anomaly.description} (Confidence: {anomaly.confidence:.1%})")
 ```
@@ -498,35 +534,35 @@ if analysis.anomalies:
 ```python
 # Complete integration test
 from pihole_analytics.core.pihole_client import PiholeClient
-from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer
+from pihole_analytics.analytics.llm_providers.factory import LLMProvider
 from pihole_analytics.utils.config import PiholeConfig
 
 def test_integration():
     """Test the complete integration."""
     # Load from environment or configure directly
     pihole_config = PiholeConfig.from_env()  # Or manual config
-    llm_config = LLMConfig.from_env()
     
     # Test connections
     pihole_client = PiholeClient(pihole_config)
-    llm_analyzer = LLMAnalyzer(llm_config)
+    llm_analyzer = LLMAnalyzer.create_with_provider(LLMProvider.OLLAMA)
     
-    print("🔍 Testing Pi-hole connection...")
+    print("Testing Pi-hole connection...")
     with pihole_client:
         queries = pihole_client.fetch_queries(10)
-        print(f"✅ Fetched {len(queries)} queries")
+        print(f"Fetched {len(queries)} queries")
     
-    print("🤖 Testing LLM connection...")
+    print("Testing LLM connection...")
     if llm_analyzer.test_connection():
-        print("✅ LLM service available")
+        print("LLM service available")
         models = llm_analyzer.get_available_models()
-        print(f"📋 Available models: {models[:3]}...")
+        print(f"Available models: {models[:3]}...")
     
     return True
 
 # Run the test
 if test_integration():
-    print("🎉 Integration test successful!")
+    print("Integration test successful!")
 ```
 
 ### Client Analysis
@@ -593,7 +629,7 @@ python integrated_analysis.py --model gemma3:4b --count 100
 
 **Quick Test**:
 ```bash
-# Test with new integrated script
+# Test with integrated script
 python integrated_analysis.py --test-connection
 
 # Test with full CLI
@@ -659,8 +695,9 @@ python integrated_analysis.py --test-connection
 
 # List available models
 python -c "
-from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig
-analyzer = LLMAnalyzer(LLMConfig.from_env())
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer
+from pihole_analytics.analytics.llm_providers.factory import LLMProvider
+analyzer = LLMAnalyzer.create_with_provider(LLMProvider.OLLAMA)
 print('Available models:', analyzer.get_available_models())
 "
 
@@ -685,10 +722,10 @@ ollama list  # Should show available models
 ```
 
 **What works regardless of LLM issues:**
-- ✅ Pi-hole authentication and connection
-- ✅ DNS query data fetching (100+ queries)
-- ✅ Basic DNS log parsing and validation
-- ❌ Only the AI-powered analysis may fail
+- Pi-hole authentication and connection
+- DNS query data fetching (100+ queries)
+- Basic DNS log parsing and validation
+- Only the AI-powered analysis may fail
 
 The Pi-hole data fetching will still work even if LLM analysis fails.
 
@@ -731,13 +768,13 @@ python test_pihole_auth.py
 **Example diagnostic output**:
 ```
 Getting session ID...
-✓ Authentication successful: BOf8VGaTLcX62ezS0Zw64g=
+Authentication successful: BOf8VGaTLcX62ezS0Zw64g=
 
 Testing: http://192.168.7.99:8080/api/summary?sid=...
   Keys: ['domains_being_blocked', 'dns_queries_today', 'ads_blocked_today', ...]
 
 Testing: http://192.168.7.99:8080/api/queries?sid=...
-  ✗ Failed: 401 Client Error: Unauthorized for url: ...
+  Failed: 401 Client Error: Unauthorized for url: ...
 ```
 
 This helps identify exactly which endpoints are working and which are failing.
