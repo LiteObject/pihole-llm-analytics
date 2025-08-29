@@ -17,7 +17,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMConfig, LLMAnalysisError
+from pihole_analytics.analytics.llm_analyzer import LLMAnalyzer, LLMAnalysisError
+from pihole_analytics.analytics.llm_providers.base import LLMConfig
 from pihole_analytics.core.pihole_client import PiholeClient
 from pihole_analytics.utils.config import PiholeConfig
 from pihole_analytics.utils.logging import setup_logging, get_logger
@@ -27,7 +28,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 
-def load_config_from_env() -> tuple[PiholeConfig, LLMConfig]:
+def load_config_from_env() -> PiholeConfig:
     """Load configuration from environment variables."""
     # Load environment variables
     load_dotenv()
@@ -43,17 +44,7 @@ def load_config_from_env() -> tuple[PiholeConfig, LLMConfig]:
     if not pihole_config.password:
         raise ValueError("PIHOLE_PASSWORD environment variable is required")
 
-    # LLM configuration
-    llm_config = LLMConfig(
-        url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
-        model=os.getenv("OLLAMA_MODEL", "gpt-oss:latest"),
-        timeout=int(os.getenv("OLLAMA_TIMEOUT", "120")),
-        max_prompt_chars=int(os.getenv("MAX_PROMPT_CHARS", "18000")),
-        temperature=float(os.getenv("OLLAMA_TEMPERATURE", "0.2")),
-        max_tokens=int(os.getenv("OLLAMA_MAX_TOKENS", "512"))
-    )
-
-    return pihole_config, llm_config
+    return pihole_config
 
 
 def format_analysis_output(analysis_result, output_format: str = "json") -> str:
@@ -215,20 +206,26 @@ Examples:
 
     try:
         # Load configuration
-        pihole_config, llm_config = load_config_from_env()
+        pihole_config = load_config_from_env()
 
-        # Override model if specified
+        # Initialize LLM analyzer using factory pattern with environment config
+        llm_config = LLMConfig.from_env()
+        llm_analyzer = LLMAnalyzer(llm_config)
+
+        # Override model if specified via CLI
         if args.model:
+            # Create new config with overridden model
             llm_config.model = args.model
+            llm_analyzer = LLMAnalyzer(llm_config)
             logger.info("Using LLM model: %s", args.model)
 
         logger.info("Configuration loaded successfully")
         logger.info("Pi-hole: %s:%d", pihole_config.host, pihole_config.port)
-        logger.info("LLM: %s (model: %s)", llm_config.url, llm_config.model)
+        logger.info("LLM: %s (model: %s)",
+                    llm_config.provider.value, llm_config.model)
 
-        # Initialize clients
+        # Initialize Pi-hole client
         pihole_client = PiholeClient(pihole_config)
-        llm_analyzer = LLMAnalyzer(llm_config)
 
         # Test connections if requested
         if args.test_connection:
