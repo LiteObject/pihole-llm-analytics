@@ -1,12 +1,5 @@
 # Pi-hole LLM Analytics
 
-[![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-
-**Version**: 1.2.0  
-**Last Updated**: August 2025
-
 A comprehensive Python application that analyzes Pi-hole DNS logs using Large Language Models (LLMs) to provide intelligent insights, threat detection, and automated anomaly analysis.
 
 ## Table of Contents
@@ -51,15 +44,6 @@ A comprehensive Python application that analyzes Pi-hole DNS logs using Large La
 - Extensive logging and error handling
 - RESTful API design patterns
 
-### **Performance Characteristics**
-
-| Metric | Value |
-|--------|-------|
-| Query Processing | ~1000 queries/second |
-| LLM Analysis Time | 2-5 seconds per 100 queries |
-| Memory Usage | ~200MB base + 1MB per 1000 queries |
-| API Response Time | < 100ms for most endpoints |
-
 ## Common Use Cases
 
 ### **Home Network Monitoring**
@@ -87,7 +71,9 @@ Real-time threat detection, automated incident response, DNS-based attack preven
 ### Prerequisites
 
 - **Pi-hole v6+** with API access enabled
-- **Ollama** with gpt-oss:latest model installed
+- **LLM Provider** (choose one):
+  - **Ollama** with any compatible model (e.g., gpt-oss:latest, llama3.2:latest, gemma3:4b)
+  - **OpenAI API** with valid API key
 - Network access between the analytics server and Pi-hole
 
 ### Installation
@@ -100,13 +86,13 @@ Real-time threat detection, automated incident response, DNS-based attack preven
 
 2. **Set up Python virtual environment:**
    ```bash
-   python -m venv venv
+   python -m venv .venv
    
    # On Windows:
-   venv\Scripts\activate
+   .venv\Scripts\activate
    
    # On macOS/Linux:
-   source venv/bin/activate
+   source .venv/bin/activate
    ```
 
 3. **Install dependencies:**
@@ -133,12 +119,24 @@ PIHOLE_HOST=192.168.7.99        # Pi-hole server IP/hostname
 PIHOLE_PORT=8080                # Pi-hole admin interface port (default: 80)
 PIHOLE_PASSWORD=your_admin_password  # Pi-hole admin password (NOT API token)
 
-# LLM Configuration (Ollama)
+# LLM Configuration (Ollama - default)
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=gpt-oss:latest
 OLLAMA_TIMEOUT=120
 OLLAMA_TEMPERATURE=0.2
 OLLAMA_MAX_TOKENS=512
+
+# LLM Configuration (OpenAI - alternative)
+# LLM_PROVIDER=openai
+# LLM_API_KEY=your_openai_api_key_here
+# LLM_MODEL=gpt-3.5-turbo
+# LLM_API_BASE_URL=https://api.openai.com/v1
+
+# General LLM Configuration
+LLM_TIMEOUT=120
+LLM_TEMPERATURE=0.2
+LLM_MAX_TOKENS=512
+MAX_PROMPT_CHARS=18000
 
 # Analytics Configuration
 ANALYTICS_LOG_COUNT=1000
@@ -160,7 +158,7 @@ APP_LOG_FORMAT=json
 - Include `PIHOLE_HOST` and `PIHOLE_PORT` separately for better control
 - **Always test connections first**: `python integrated_analysis.py --test-connection`
 - **Pi-hole data fetching is reliable** - even if LLM analysis fails, you'll get DNS query data
-- The diagnostic tool (`diagnose.py`) can help verify your configuration
+- Use `pihole_diagnostics.py` for comprehensive Pi-hole diagnostics
 
 ## Usage
 
@@ -647,7 +645,7 @@ python integrated_analysis.py --count 10 --verbose
    python integrated_analysis.py --test-connection --verbose
    
    # Test Pi-hole authentication and endpoints
-   python test_pihole_auth.py
+   python pihole_diagnostics.py
    ```
 
 2. **Verify Pi-hole admin password**:
@@ -755,7 +753,7 @@ The project includes comprehensive diagnostic capabilities:
 python integrated_analysis.py --test-connection
 
 # Test Pi-hole authentication and all endpoints
-python test_pihole_auth.py
+python pihole_diagnostics.py
 
 # This will test:
 # - Authentication to Pi-hole

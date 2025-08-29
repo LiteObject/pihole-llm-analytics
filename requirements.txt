@@ -1,6 +1,7 @@
 # Core dependencies for Pi-hole LLM Analytics
 requests>=2.31.0
 python-dotenv>=1.0.0
+rich>=13.0.0  # For fancy console output with colors and formatting
 
 # Data analysis (optional for enhanced analytics)
 # pandas>=2.0.0
