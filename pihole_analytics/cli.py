@@ -60,34 +60,55 @@ def create_summary_table(summary: dict, timestamp: Optional[str] = None) -> Tabl
     # Calculate block rate
     block_rate = summary.get('block_rate', 0) * 100
 
+    # Helper function to safely format numbers with commas
+    def format_number(value):
+        if value == 'N/A' or value is None:
+            return 'N/A'
+        try:
+            return f"{int(value):,}"
+        except (ValueError, TypeError):
+            return str(value)
+
+    # Handle both analysis and security report formats
+    total_queries = summary.get('total_queries') or summary.get(
+        'total_security_events', 'N/A')
+    blocked_queries = summary.get('blocked_queries', 'N/A')
+    unique_domains = summary.get('unique_domains') or summary.get(
+        'unique_blocked_domains', 'N/A')
+    unique_clients = summary.get('unique_clients', 'N/A')
+    anomalies = summary.get('anomalies_detected') or len(
+        summary.get('anomalies', []))
+    alerts = summary.get('alerts_generated') or len(
+        summary.get('active_alerts', []))
+
     summary_table.add_row(
         "Total Queries",
-        f"{summary.get('total_queries', 'N/A'):,}",
+        format_number(total_queries),
         f"Analyzed at {timestamp or 'N/A'}"
     )
     summary_table.add_row(
         "Blocked Queries",
-        f"{summary.get('blocked_queries', 'N/A'):,}",
+        format_number(blocked_queries),
         f"{block_rate:.1f}% block rate"
     )
     summary_table.add_row(
         "Unique Domains",
-        f"{summary.get('unique_domains', 'N/A'):,}",
+        format_number(unique_domains),
         "Different domains accessed"
     )
     summary_table.add_row(
         "Unique Clients",
-        f"{summary.get('unique_clients', 'N/A'):,}",
+        format_number(unique_clients),
         "Active network devices"
     )
     summary_table.add_row(
         "Anomalies",
-        f"{summary.get('anomalies_detected', 'N/A'):,}",
+        format_number(anomalies),
         "Security anomalies detected"
     )
     summary_table.add_row(
         "Alerts",
-        f"{summary.get('alerts_generated', 'N/A'):,}",
+        format_number(alerts),
         "Security alerts generated"
     )
 
@@ -193,9 +214,10 @@ def format_table_output(data: dict) -> str:
     console.print(create_summary_table(data["summary"], timestamp_str))
     console.print()
 
-    # Show alerts if present
-    if data.get("alerts"):
-        console.print(create_alerts_display(data["alerts"]))
+    # Show alerts if present (check both 'alerts' and 'active_alerts')
+    alerts_to_show = data.get("alerts") or data.get("active_alerts")
+    if alerts_to_show:
+        console.print(create_alerts_display(alerts_to_show))
         console.print()
 
     return ""  # Rich console prints directly
