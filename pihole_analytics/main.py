@@ -373,7 +373,7 @@ class PiholeAnalytics(LoggerMixin):
             status["components"]["llm_analyzer"] = {
                 "status": "healthy" if llm_healthy else "unhealthy",
                 "model": self.llm_analyzer.config.model,
-                "url": self.llm_analyzer.config.url,
+                "url": self.llm_analyzer.config.api_base_url,
                 # Limit to first 5
                 "available_models": available_models[:5] if available_models else []
             }
