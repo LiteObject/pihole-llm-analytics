@@ -319,11 +319,11 @@ The new factory pattern implementation provides:
 
 ```
 pihole-llm-analytics/
-├── pihole_analytics/           # Main package
-│   ├── core/                   # Core functionality
+├── pihole_analytics/          # Main package
+│   ├── core/                  # Core functionality
 │   │   ├── pihole_client.py   # Pi-hole API client
 │   │   └── llm_client.py      # Legacy LLM integration
-│   ├── analytics/              # Analytics engine
+│   ├── analytics/             # Analytics engine
 │   │   ├── analyzer.py        # Traditional DNS analysis
 │   │   ├── llm_analyzer.py    # AI-powered analysis with factory pattern
 │   │   └── llm_providers/     # LLM provider factory pattern
@@ -332,9 +332,9 @@ pihole-llm-analytics/
 │   │       ├── factory.py     # Provider factory and enum
 │   │       ├── ollama_provider.py  # Ollama implementation
 │   │       └── openai_provider.py  # OpenAI implementation
-│   ├── security/               # Security monitoring
+│   ├── security/              # Security monitoring
 │   │   └── threat_detector.py # Threat detection and alerting
-│   ├── utils/                  # Shared utilities
+│   ├── utils/                 # Shared utilities
 │   │   ├── models.py          # Data models and types
 │   │   ├── config.py          # Configuration management
 │   │   └── logging.py         # Logging utilities
@@ -343,7 +343,7 @@ pihole-llm-analytics/
 │   └── __main__.py            # Module entry point
 ├── integrated_analysis.py     # Standalone analysis script
 ├── requirements.txt           # Python dependencies
-└── README.md                 # This documentation
+└── README.md                  # This documentation
 ```
 
 ### Key Components
